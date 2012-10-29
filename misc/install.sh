@@ -29,7 +29,7 @@ mkdir -p ~/.screenly
 cp ~/screenly/misc/screenly.conf ~/.screenly/
 
 echo "Enabling Watchdog..."
-sudo modprobe bcm2708_wdog
+sudo modprobe bcm2708_wdog nowayout=1
 sudo cp /etc/modules /etc/modules.bak
 sudo sed '$ i\bcm2708_wdog nowayout=1' -i /etc/modules
 sudo chkconfig watchdog on
