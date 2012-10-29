@@ -8,7 +8,7 @@ MIN_REQ="512000"
 
 if [[ $ROOT_AVAIL -lt $MIN_REQ ]]; then
 	echo "Insufficient disk space. Make sure you have at least 500MB available on the root partition."
-	exit 1 
+	exit 1
 fi
 
 echo "Installing dependencies..."
@@ -26,12 +26,12 @@ sudo mv ~/dphys-swapfile /etc/dphys-swapfile
 
 echo "Adding Screenly's config-file"
 mkdir -p ~/.screenly
-cp ~/screenly/misc/screenly.conf ~/.screenly/ 
+cp ~/screenly/misc/screenly.conf ~/.screenly/
 
 echo "Enabling Watchdog..."
 sudo modprobe bcm2708_wdog
 sudo cp /etc/modules /etc/modules.bak
-sudo sed '$ i\bcm2708_wdog' -i /etc/modules
+sudo sed '$ i\bcm2708_wdog nowayout=1' -i /etc/modules
 sudo chkconfig watchdog on
 sudo cp /etc/watchdog.conf /etc/watchdog.conf.bak
 sudo sed -e 's/#watchdog-device/watchdog-device/g' -i /etc/watchdog.conf
@@ -52,6 +52,14 @@ sudo mv /etc/xdg/lxsession/LXDE/autostart /etc/xdg/lxsession/LXDE/autostart.bak
 
 echo "Quiet the boot process..."
 sudo cp /boot/cmdline.txt /boot/cmdline.txt.bak
-sudo sed 's/$/ quiet/' -i /boot/cmdline.txt  
+sudo sed 's/$/ quiet/' -i /boot/cmdline.txt
+sudo sed 's/ console=tty1 / console=tty2 /' -i /boot/cmdline.txt
+
+#Output everything to tty2 and keep tty1 clean from boot messages
+sudo cp /etc/inittab /etc/inittab.bak
+sudo sed 's/^1:2345:respawn:\/sbin\/getty /#1:2345:respawn:\/sbin\/getty /' -i /etc/inittab
+sudo sed 's/^2:2345:respawn:\/sbin\/getty 38400 tty2$/2:2345:respawn:\/sbin\/getty --noclear 38400 tty2/' -i /etc/inittab
+sudo cp /etc/rc.local /etc/rc.local.bak
+sudo sed 's/^  printf "My IP address is %s\\n" "\$_IP"$/  printf "My IP address is %s\\n" "\$_IP"\n  printf "My IP address is %s\\n" "\$_IP" >> \/dev\/tty1/' -i /etc/rc.local
 
 echo "Assuming no errors were encountered, go ahead and restart your computer."
