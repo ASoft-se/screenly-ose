@@ -6,7 +6,7 @@ echo "Installing Screenly OSE (beta)"
 ROOT_AVAIL=$(df -k / | tail -n 1 | awk {'print $4'})
 MIN_REQ="512000"
 
-if [[ $ROOT_AVAIL -lt $MIN_REQ ]]; then
+if [ $ROOT_AVAIL -lt $MIN_REQ ]; then
 	echo "Insufficient disk space. Make sure you have at least 500MB available on the root partition."
 	exit 1
 fi
@@ -43,23 +43,23 @@ sudo /etc/init.d/supervisor stop
 sudo /etc/init.d/supervisor start
 
 echo "Making modifications to X..."
-rm -f ~/.gtkrc-2.0
+[ -f ~/.gtkrc-2.0 ] && rm -f ~/.gtkrc-2.0
 ln -s ~/screenly/misc/gtkrc-2.0 ~/.gtkrc-2.0
-mkdir -p ~/.config/openbox
-mv ~/.config/openbox/lxde-rc.xml ~/.config/openbox/lxde-rc.xml.bak
+[ -f ~/.config/openbox/lxde-rc.xml ] && mv ~/.config/openbox/lxde-rc.xml ~/.config/openbox/lxde-rc.xml.bak
+[ -d ~/.config/openbox ] || mkdir -p ~/.config/openbox
 ln -s ~/screenly/misc/lxde-rc.xml ~/.config/openbox/lxde-rc.xml
-mv ~/.config/lxpanel/LXDE/panels/panel ~/.config/lxpanel/LXDE/panels/panel.bak
-sudo mv /etc/xdg/lxsession/LXDE/autostart /etc/xdg/lxsession/LXDE/autostart.bak
+[ -f ~/.config/lxpanel/LXDE/panels/panel ] && mv ~/.config/lxpanel/LXDE/panels/panel ~/.config/lxpanel/LXDE/panels/panel.bak
+[ -f /etc/xdg/lxsession/LXDE/autostart ] && sudo mv /etc/xdg/lxsession/LXDE/autostart /etc/xdg/lxsession/LXDE/autostart.bak
 
 echo "Quiet the boot process..."
 sudo cp /boot/cmdline.txt /boot/cmdline.txt.bak
-sudo sed 's/$/ quiet/' -i /boot/cmdline.txt
 sudo sed 's/ console=tty1 / console=tty2 /' -i /boot/cmdline.txt
 
 #Output everything to tty2 and keep tty1 clean from boot messages
 sudo cp /etc/inittab /etc/inittab.bak
 sudo sed 's/^1:2345:respawn:\/sbin\/getty /#1:2345:respawn:\/sbin\/getty /' -i /etc/inittab
-sudo sed 's/^2:2345:respawn:\/sbin\/getty 38400 tty2$/2:2345:respawn:\/sbin\/getty --noclear 38400 tty2/' -i /etc/inittab
+sudo sed 's/^2:23:respawn:\/sbin\/getty 38400 tty2$/2:2345:respawn:\/sbin\/getty --noclear 38400 tty2/' -i /etc/inittab
+sudo sed 's/^3:23:respawn:\/sbin\/getty 38400 tty3$/3:2345:respawn:\/sbin\/getty --noclear 38400 tty3/' -i /etc/inittab
 sudo cp /etc/rc.local /etc/rc.local.bak
 sudo sed 's/^  printf "My IP address is %s\\n" "\$_IP"$/  printf "My IP address is %s\\n" "\$_IP"\n  printf "My IP address is %s\\n" "\$_IP" >> \/dev\/tty1/' -i /etc/rc.local
 
