@@ -45,6 +45,7 @@ sudo /etc/init.d/supervisor start
 echo "Making modifications to X..."
 rm -f ~/.gtkrc-2.0
 ln -s ~/screenly/misc/gtkrc-2.0 ~/.gtkrc-2.0
+mkdir -p ~/.config/openbox
 mv ~/.config/openbox/lxde-rc.xml ~/.config/openbox/lxde-rc.xml.bak
 ln -s ~/screenly/misc/lxde-rc.xml ~/.config/openbox/lxde-rc.xml
 mv ~/.config/lxpanel/LXDE/panels/panel ~/.config/lxpanel/LXDE/panels/panel.bak
