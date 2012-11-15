@@ -139,7 +139,7 @@ def initiate_db():
     asset_table = c.fetchone()
     
     if not asset_table:
-        c.execute("CREATE TABLE assets (asset_id TEXT, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
+        c.execute("CREATE TABLE assets (asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
         return "Initiated database."
     
 @route('/process_asset', method='POST')
