@@ -20,12 +20,13 @@ if filename_exist:
     conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
+    # This can fail if there is duplicate of asset_id TODO: tell user to remove them if they exist before migrating
     migration= """
         BEGIN TRANSACTION;
         CREATE TEMPORARY TABLE assets_backup(asset_id, name, uri, md5, start_date, end_date, duration, mimetype);
         INSERT INTO assets_backup SELECT asset_id, name, uri, md5, start_date, end_date, duration, mimetype FROM assets;
         DROP TABLE assets;
-        CREATE TABLE assets(asset_id TEXT, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT);
+        CREATE TABLE assets(asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT);
         INSERT INTO assets SELECT asset_id, name, uri, md5, start_date, end_date, duration, mimetype FROM assets_backup;
         DROP TABLE assets_backup;
         COMMIT;
