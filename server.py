@@ -7,7 +7,6 @@ __license__ = "Dual License: GPLv2 and Commercial License"
 __version__ = "0.1.2"
 __email__ = "vpetersson@wireload.net"
 
-import sqlite3
 from Config import Config
 from sys import platform, stdout
 from requests import get as req_get, head as req_head
@@ -25,15 +24,10 @@ from subprocess import check_output
 
 # Get config
 config = Config()
-# easy access to database for now, maybe move sqlite3 to the Config as well?
-database = config.database
 
 def get_playlist():
     
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-    c.execute("SELECT * FROM assets ORDER BY name")
-    assets = c.fetchall()
+    assets = config.sqlfetch("SELECT * FROM assets ORDER BY name")
     
     playlist = []
     for asset in assets:
@@ -73,10 +67,7 @@ def get_playlist():
 
 def get_assets():
     
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-    c.execute("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
-    assets = c.fetchall()
+    assets = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
     
     playlist = []
     for asset in assets:
@@ -116,7 +107,7 @@ def initiate_db():
     if not path.isdir(config.configdir):
        makedirs(config.configdir)
 
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = config.get_sqlconn()
     c = conn.cursor()
 
     # Check if the asset-table exist. If it doesn't, create it.
@@ -126,11 +117,10 @@ def initiate_db():
     if not asset_table:
         c.execute("CREATE TABLE assets (asset_id TEXT, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
         return "Initiated database."
+    conn.close()
     
 @route('/process_asset', method='POST')
 def process_asset():
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
 
     if (request.POST.get('name','').strip() and 
         request.POST.get('uri','').strip() and
@@ -171,8 +161,7 @@ def process_asset():
             end_date = ""
             duration = ""
             
-            c.execute("INSERT INTO assets (asset_id, name, uri, start_date, end_date, duration, mimetype) VALUES (?,?,?,?,?,?,?)", (asset_id, name, uri, start_date, end_date, duration, mimetype))
-            conn.commit()
+            config.sqlcommit("INSERT INTO assets (asset_id, name, uri, start_date, end_date, duration, mimetype) VALUES (?,?,?,?,?,?,?)", (asset_id, name, uri, start_date, end_date, duration, mimetype))
             
             header = "Yay!"
             message =  "Added asset (" + asset_id + ") to the database."
@@ -189,8 +178,6 @@ def process_asset():
 
 @route('/process_schedule', method='POST')
 def process_schedule():
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
 
     if (request.POST.get('asset','').strip() and 
         request.POST.get('start','').strip() and
@@ -204,7 +191,9 @@ def process_schedule():
         start_date = datetime.strptime(input_start, '%Y-%m-%d @ %H:%M')
         end_date = datetime.strptime(input_end, '%Y-%m-%d @ %H:%M')
 
-        query = c.execute("SELECT mimetype FROM assets WHERE asset_id=?", (asset_id,))
+        conn = config.get_sqlconn()
+        c = conn.cursor()
+        c.execute("SELECT mimetype FROM assets WHERE asset_id=?", (asset_id,))
         asset_mimetype = c.fetchone()
         
         if "image" or "web" in asset_mimetype:
@@ -219,6 +208,7 @@ def process_schedule():
 
         c.execute("UPDATE assets SET start_date=?, end_date=?, duration=? WHERE asset_id=?", (start_date, end_date, duration, asset_id))
         conn.commit()
+        conn.close()
         
         header = "Yes!"
         message = "Successfully scheduled asset."
@@ -231,8 +221,6 @@ def process_schedule():
 
 @route('/update_asset', method='POST')
 def update_asset():
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
 
     if (request.POST.get('asset_id','').strip() and 
         request.POST.get('name','').strip() and
@@ -262,8 +250,7 @@ def update_asset():
         except:
             end_date = None
 
-        c.execute("UPDATE assets SET start_date=?, end_date=?, duration=?, name=?, uri=?, duration=?, mimetype=? WHERE asset_id=?", (start_date, end_date, duration, name, uri, duration, mimetype, asset_id))
-        conn.commit()
+        config.sqlcommit("UPDATE assets SET start_date=?, end_date=?, duration=?, name=?, uri=?, duration=?, mimetype=? WHERE asset_id=?", (start_date, end_date, duration, name, uri, duration, mimetype, asset_id))
 
         header = "Yes!"
         message = "Successfully updated asset."
@@ -277,12 +264,9 @@ def update_asset():
 
 @route('/delete_asset/:asset_id')
 def delete_asset(asset_id):
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-    
-    c.execute("DELETE FROM assets WHERE asset_id=?", (asset_id,))
+
     try:
-        conn.commit()
+        config.sqlcommit("DELETE FROM assets WHERE asset_id=?", (asset_id,))
         
         header = "Success!"
         message = "Deleted asset."
@@ -357,13 +341,10 @@ def add_asset():
 
 @route('/schedule_asset')
 def schedule_asset():
-    
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
+
+    query = config.sqlfetch("SELECT name, asset_id FROM assets ORDER BY name")
 
     assets = []
-    c.execute("SELECT name, asset_id FROM assets ORDER BY name")
-    query = c.fetchall()
     for asset in query:
         name = asset[0]
         asset_id = asset[1]
@@ -378,11 +359,7 @@ def schedule_asset():
 @route('/edit_asset/:asset_id')
 def edit_asset(asset_id):
 
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-
-    c.execute("SELECT name, uri, md5, start_date, end_date, duration, mimetype FROM assets WHERE asset_id=?", (asset_id,))
-    asset = c.fetchone()
+    asset = config.sqlfetch("SELECT name, uri, md5, start_date, end_date, duration, mimetype FROM assets WHERE asset_id=?", (asset_id,), True)
     
     name = asset[0]
     uri = asset[1]

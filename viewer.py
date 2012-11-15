@@ -7,7 +7,6 @@ __license__ = "Dual License: GPLv2 and Commercial License"
 __version__ = "0.1"
 __email__ = "vpetersson@wireload.net"
 
-import sqlite3
 from Config import Config
 from requests import get 
 from platform import machine 
@@ -84,10 +83,7 @@ class Scheduler(object):
 
 def generate_asset_list():
     logging.info('Generating asset-list...')
-    conn = sqlite3.connect(config.database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-    c.execute("SELECT asset_id, name, uri, md5, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
-    query = c.fetchall()
+    query = config.sqlfetch("SELECT asset_id, name, uri, md5, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
 
     playlist = []
     time_cur = config.time_lookup()

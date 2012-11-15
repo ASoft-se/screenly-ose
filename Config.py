@@ -10,6 +10,7 @@ import ConfigParser
 from os import path, getenv
 from datetime import datetime
 from netifaces import ifaddresses
+import sqlite3
 
 def logg(string, out=None):
     if out is None:
@@ -66,3 +67,25 @@ class Config:
         else:
             server = self.listen
         return 'http://%s:%i' % (server, self.port)
+
+
+    def get_sqlconn(self):
+       return sqlite3.connect(self.database, detect_types=sqlite3.PARSE_DECLTYPES)
+
+    def sqlfetch(self, sql, parameters={}, do_fetchone=False):
+        conn = self.get_sqlconn()
+        c = conn.cursor()
+        c.execute(sql, parameters)
+        if do_fetchone:
+            result = c.fetchone()
+        else:
+            result = c.fetchall()
+        conn.close()
+        return result
+
+    def sqlcommit(self, sql, parameters={}):
+        conn = self.get_sqlconn()
+        c = conn.cursor()
+        c.execute(sql, parameters)
+        conn.commit()
+        conn.close()
