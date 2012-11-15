@@ -48,7 +48,7 @@ supervisor_symlink = '/etc/supervisor/conf.d/screenly.conf'
 old_target = '/home/pi/screenly/misc/screenly.conf'
 new_target = '/home/pi/screenly/misc/supervisor_screenly.conf'
 
-if os.readlink(supervisor_symlink) == old_target:
+if os.path.isfile(supervisor_symlink) and os.readlink(supervisor_symlink) == old_target:
     print 'Updating Supervisor symlink'
     try:
         subprocess.call(['/usr/bin/sudo', 'rm', supervisor_symlink])
