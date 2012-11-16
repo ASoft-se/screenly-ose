@@ -83,7 +83,7 @@ class Scheduler(object):
 
 def generate_asset_list():
     logging.info('Generating asset-list...')
-    query = config.sqlfetch("SELECT asset_id, name, uri, md5, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
+    query = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
 
     playlist = []
     time_cur = config.time_lookup()
@@ -92,11 +92,10 @@ def generate_asset_list():
         asset_id = asset[0]  
         name = asset[1].encode('ascii', 'ignore')
         uri = asset[2]
-        md5 = asset[3]
-        start_date = asset[4]
-        end_date = asset[5]
-        duration = asset[6]
-        mimetype = asset[7]
+        start_date = asset[3]
+        end_date = asset[4]
+        duration = asset[5]
+        mimetype = asset[6]
 
         logging.debug('generate_asset_list: %s: start (%s) end (%s)' % (name, start_date, end_date))
         if (start_date and end_date) and (start_date < time_cur and end_date > time_cur):

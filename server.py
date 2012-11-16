@@ -27,7 +27,7 @@ config = Config()
 
 def get_playlist():
     
-    assets = config.sqlfetch("SELECT * FROM assets ORDER BY name")
+    assets = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
     
     playlist = []
     for asset in assets:
@@ -35,21 +35,21 @@ def get_playlist():
         asset_id = asset[0]  
         name = asset[1]
         uri = asset[2] # Path in local database
-        input_start_date = asset[4]
-        input_end_date = asset[5]
+        input_start_date = asset[3]
+        input_end_date = asset[4]
 
         try:
-            start_date = datestring.date_to_string(asset[4])
+            start_date = datestring.date_to_string(asset[3])
         except:
             start_date = None
 
         try:
-            end_date = datestring.date_to_string(asset[5])
+            end_date = datestring.date_to_string(asset[4])
         except:
             end_date = None
             
-        duration = asset[6]
-        mimetype = asset[7]
+        duration = asset[5]
+        mimetype = asset[6]
 
         playlistitem = {
                 "name" : name,
@@ -115,7 +115,7 @@ def initiate_db():
     asset_table = c.fetchone()
     
     if not asset_table:
-        c.execute("CREATE TABLE assets (asset_id TEXT, name TEXT, uri TEXT, md5 TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
+        c.execute("CREATE TABLE assets (asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
         return "Initiated database."
     conn.close()
     
@@ -342,12 +342,11 @@ def add_asset():
 @route('/schedule_asset')
 def schedule_asset():
 
-    query = config.sqlfetch("SELECT name, asset_id FROM assets ORDER BY name")
-
+    query = config.sqlfetch("SELECT asset_id, name FROM assets ORDER BY name")
     assets = []
     for asset in query:
-        name = asset[0]
-        asset_id = asset[1]
+        asset_id = asset[0]
+        name = asset[1]
         
         assets.append({
             'name' : name,
@@ -359,11 +358,10 @@ def schedule_asset():
 @route('/edit_asset/:asset_id')
 def edit_asset(asset_id):
 
-    asset = config.sqlfetch("SELECT name, uri, md5, start_date, end_date, duration, mimetype FROM assets WHERE asset_id=?", (asset_id,), True)
+    asset = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets WHERE asset_id=?", (asset_id,), True)
     
-    name = asset[0]
-    uri = asset[1]
-    md5 = asset[2]
+    name = asset[1]
+    uri = asset[2]
 
     if asset[3]:
         start_date = datestring.date_to_string(asset[3])
