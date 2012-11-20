@@ -9,6 +9,7 @@ __email__ = "vpetersson@wireload.net"
 import ConfigParser
 from os import path, getenv
 from datetime import datetime
+from dateutils import datestring
 from netifaces import ifaddresses
 import sqlite3
 
@@ -89,3 +90,35 @@ class Config:
         c.execute(sql, parameters)
         conn.commit()
         conn.close()
+
+
+    def getassets(self, exsql="ORDER BY name", parameters={}):
+        assets = []
+        query = self.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets %s" % exsql, parameters)
+        for row in query:
+            assets.append(asset(row))
+        return assets
+
+class asset:
+    """asset reuse"""
+
+    def __init__(self, qrow):
+        # handle query SELECT as in getassets
+        self.asset_id = qrow[0]
+        self.name = qrow[1].encode('ascii', 'ignore')
+        self.uri = qrow[2]
+        self.start_date = qrow[3]
+        self.end_date = qrow[4]
+        self.duration = qrow[5]
+        self.mimetype = qrow[6]
+
+    def playlistitem(self, default_date_string=None):
+        return {
+            "name" : self.name,
+            "uri" : self.uri,
+            "duration" : self.duration,
+            "mimetype" : self.mimetype,
+            "asset_id" : self.asset_id,
+            "start_date" : datestring.date_to_string(self.start_date) if self.start_date else default_date_string,
+            "end_date" : datestring.date_to_string(self.end_date) if self.end_date else default_date_string
+            }

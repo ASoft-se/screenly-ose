@@ -83,29 +83,22 @@ class Scheduler(object):
 
 def generate_asset_list():
     logging.info('Generating asset-list...')
-    query = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
+    assets = config.getassets()
 
     playlist = []
     time_cur = config.time_lookup()
     deadline = None
-    for asset in query:
-        asset_id = asset[0]  
-        name = asset[1].encode('ascii', 'ignore')
-        uri = asset[2]
-        start_date = asset[3]
-        end_date = asset[4]
-        duration = asset[5]
-        mimetype = asset[6]
+    for asset in assets:
 
-        logging.debug('generate_asset_list: %s: start (%s) end (%s)' % (name, start_date, end_date))
-        if (start_date and end_date) and (start_date < time_cur and end_date > time_cur):
-            playlist.append({"name" : name, "uri" : uri, "duration" : duration, "mimetype" : mimetype})
-        if (start_date and end_date) and (start_date < time_cur and end_date > time_cur):
-            if deadline == None or end_date < deadline:
-               deadline = end_date
-        if (start_date and end_date) and (start_date > time_cur and end_date > start_date):
-            if deadline == None or start_date < deadline:
-               deadline = start_date
+        logging.debug('generate_asset_list: %s: start (%s) end (%s)' % (asset.name, asset.start_date, asset.end_date))
+        if (asset.start_date and asset.end_date):
+            if (asset.start_date < time_cur and asset.end_date > time_cur):
+                playlist.append(asset.playlistitem())
+                if deadline == None or asset.end_date < deadline:
+                    deadline = asset.end_date
+            if (asset.start_date > time_cur and asset.end_date > asset.start_date):
+                if deadline == None or asset.start_date < deadline:
+                   deadline = asset.start_date
 
     logging.debug('generate_asset_list deadline: %s' % deadline)
 

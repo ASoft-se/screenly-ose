@@ -15,7 +15,6 @@ from hashlib import md5
 from json import dumps, loads 
 from datetime import datetime, timedelta
 from bottle import route, run, debug, template, request, validate, error, static_file, get
-from dateutils import datestring
 from StringIO import StringIO
 from PIL import Image
 from urlparse import urlparse
@@ -27,78 +26,22 @@ config = Config()
 
 def get_playlist():
     
-    assets = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
+    assets = config.getassets()
     
     playlist = []
     for asset in assets:
-        # Match variables with database
-        asset_id = asset[0]  
-        name = asset[1]
-        uri = asset[2] # Path in local database
-        input_start_date = asset[3]
-        input_end_date = asset[4]
-
-        try:
-            start_date = datestring.date_to_string(asset[3])
-        except:
-            start_date = None
-
-        try:
-            end_date = datestring.date_to_string(asset[4])
-        except:
-            end_date = None
-            
-        duration = asset[5]
-        mimetype = asset[6]
-
-        playlistitem = {
-                "name" : name,
-                "uri" : uri,
-                "duration" : duration,
-                "mimetype" : mimetype,
-                "asset_id" : asset_id,
-                "start_date" : start_date,
-                "end_date" : end_date
-                }
-        if (start_date and end_date) and (input_start_date < config.time_lookup() and input_end_date > config.time_lookup()):
-            playlist.append(playlistitem)
+        if (asset.start_date and asset.end_date) and (asset.start_date < config.time_lookup() and asset.end_date > config.time_lookup()):
+            playlist.append(asset.playlistitem())
     
     return dumps(playlist)
 
 def get_assets():
     
-    assets = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
+    assets = config.getassets()
     
     playlist = []
     for asset in assets:
-        # Match variables with database
-        asset_id = asset[0]  
-        name = asset[1]
-        uri = asset[2] # Path in local database
-
-        try:
-            start_date = datestring.date_to_string(asset[3])
-        except:
-            start_date = ""
-
-        try:
-            end_date = datestring.date_to_string(asset[4])
-        except:
-            end_date = ""
-            
-        duration = asset[5]
-        mimetype = asset[6]
-
-        playlistitem = {
-                "name" : name,
-                "uri" : uri,
-                "duration" : duration,
-                "mimetype" : mimetype,
-                "asset_id" : asset_id,
-                "start_date" : start_date,
-                "end_date" : end_date
-                }
-        playlist.append(playlistitem)
+        playlist.append(asset.playlistitem(""))
     
     return dumps(playlist)
 
@@ -358,34 +301,9 @@ def schedule_asset():
 @route('/edit_asset/:asset_id')
 def edit_asset(asset_id):
 
-    asset = config.sqlfetch("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets WHERE asset_id=?", (asset_id,), True)
-    
-    name = asset[1]
-    uri = asset[2]
+    assets = config.getassets("WHERE asset_id=?", (asset_id,))
+    asset_info = assets[0].playlistitem()
 
-    if asset[3]:
-        start_date = datestring.date_to_string(asset[3])
-    else:
-        start_date = None
-
-    if asset[4]:
-        end_date = datestring.date_to_string(asset[4])
-    else:
-        end_date = None
-
-    duration = asset[5]
-    mimetype = asset[6]
-
-    asset_info = {
-            "name" : name,
-            "uri" : uri,
-            "duration" : duration,
-            "mimetype" : mimetype,
-            "asset_id" : asset_id,
-            "start_date" : start_date,
-            "end_date" : end_date
-            }
-    #return str(asset_info)
     return template('edit_asset', asset_info=asset_info)
         
 # Static
