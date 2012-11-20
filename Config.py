@@ -73,14 +73,11 @@ class Config:
     def get_sqlconn(self):
        return sqlite3.connect(self.database, detect_types=sqlite3.PARSE_DECLTYPES)
 
-    def sqlfetch(self, sql, parameters={}, do_fetchone=False):
+    def sqlfetch(self, sql, parameters={}):
         conn = self.get_sqlconn()
         c = conn.cursor()
         c.execute(sql, parameters)
-        if do_fetchone:
-            result = c.fetchone()
-        else:
-            result = c.fetchall()
+        result = c.fetchall()
         conn.close()
         return result
 
