@@ -91,12 +91,12 @@ def generate_asset_list():
     for asset in assets:
 
         logging.debug('generate_asset_list: %s: start (%s) end (%s)' % (asset.name, asset.start_date, asset.end_date))
-        if (asset.start_date and asset.end_date):
-            if (asset.start_date < time_cur and asset.end_date > time_cur):
+        if (asset.start_date and asset.end_date and asset.start_date <= asset.end_date):
+            if (asset.start_date <= time_cur and time_cur <= asset.end_date):
                 playlist.append(asset.playlistitem())
                 if deadline == None or asset.end_date < deadline:
                     deadline = asset.end_date
-            if (asset.start_date > time_cur and asset.end_date > asset.start_date):
+            if (asset.start_date > time_cur):
                 if deadline == None or asset.start_date < deadline:
                    deadline = asset.start_date
 
