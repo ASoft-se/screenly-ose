@@ -180,8 +180,7 @@ def get_fifo():
     for file in candidates:
         if S_ISFIFO(os_stat(file).st_mode):
             return file
-        else:
-            return None
+    return None
 
 def browser_set(set_data):
     f = open(fifo, 'a')
