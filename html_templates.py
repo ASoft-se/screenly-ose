@@ -1,9 +1,4 @@
-import os, string
-
-# Nifty trick from http://stackoverflow.com/questions/295135/turn-a-string-into-a-valid-filename-in-python
-def validate_filename(filename):
-    valid_chars = "-_.()%s%s" % (string.ascii_letters, string.digits)
-    return ''.join(c for c in filename if c in valid_chars)
+# -*- coding: utf8 -*-
 
 def black_page():
     filepath = "/tmp/screenly_html/black_page.html"
@@ -13,15 +8,10 @@ def black_page():
     f.close()
     return filepath
 
-def image_page(image, name):
-    filename = validate_filename(name)
-    full_filename = '/tmp/screenly_html/' + filename + '.html'
+def image_page(image, asset_id):
+    full_filename = '/tmp/screenly_html/' + asset_id + '.html'
     html = "<html><head><style>body {background-image:url('%s'); background-repeat:no-repeat; background-position:center; background-color:#000000;}</style></head><!-- Just a black page --></html>" % image
     f = open(full_filename, 'w')
     f.write(html)
     f.close()
     return full_filename
-
-
-
-            
