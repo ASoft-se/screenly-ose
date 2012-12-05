@@ -15,8 +15,6 @@ from hashlib import md5
 from json import dumps, loads 
 from datetime import datetime, timedelta
 from bottle import route, run, debug, template, request, validate, error, static_file, get
-from StringIO import StringIO
-from PIL import Image
 from urlparse import urlparse
 from hurry.filesize import size
 from subprocess import check_output
@@ -76,26 +74,18 @@ def process_asset():
 
         # Make sure it's a valid resource
         uri_check = urlparse(uri)
-        if not (uri_check.scheme == "http" or uri_check.scheme == "https"):
+        local_and_exists = (uri_check.scheme == "" and path.exists(uri))
+        if not (uri_check.scheme == "http" or uri_check.scheme == "https" or local_and_exists):
             header = "Ops!"
-            message = "URL must be HTTP or HTTPS."
+            message = "URL must be HTTP or HTTPS or absolute path to local file."
             return template('message', header=header, message=message)
 
-        if "image" in mimetype:
-            file = req_get(uri)
-        else:
+        if not local_and_exists:
             file = req_head(uri)
 
         # Only proceed if fetch was successful. 
-        if file.status_code == 200:
+        if local_and_exists or file.status_code == 200:
             asset_id = md5(name+uri).hexdigest()
-            
-            strict_uri = uri_check.scheme + "://" + uri_check.netloc + uri_check.path
-
-            if "image" in mimetype:
-                resolution = Image.open(StringIO(file.content)).size
-            else:
-                resolution = "N/A"
 
             if "video" in mimetype:
                 duration = "N/A"
