@@ -261,7 +261,6 @@ def delete_asset(asset_id):
 
 @route('/')
 def viewIndex():
-    config.initiate_db()
     return template('index')
 
 
@@ -290,9 +289,6 @@ def system_info():
 
 @route('/splash_page')
 def splash_page():
-
-    # Make sure the database exist and that it is initiated.
-    config.initiate_db()
 
     url = config.get_conf_url();
     ip_lookup = url is not None

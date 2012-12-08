@@ -31,13 +31,13 @@ class Config:
         config.read(conf_file)
 
         # Get main config values
+        self.configdir = path.join(getenv('HOME'), config.get('main', 'configdir'))
         self.database = path.join(getenv('HOME'), config.get('main', 'database'))
+        # Make sure the database exist and that it is initiated.
+        self.__init_db()
         self.nodetype = config.get('main', 'nodetype')
         self.listen = config.get('main', 'listen')
         self.port = config.getint('main', 'port')
-
-        # Get server config values
-        self.configdir = path.join(getenv('HOME'), config.get('main', 'configdir'))
 
         # Get viewer config values
         self.show_splash = config.getboolean('viewer', 'show_splash')
@@ -69,10 +69,11 @@ class Config:
         return 'http://%s:%i' % (server, self.port)
 
 
-    def initiate_db(self):
+    def __init_db(self):
         # Create config dir if it doesn't exist
         if not path.isdir(self.configdir):
             makedirs(self.configdir)
+        # DB can be located in other then configdir
 
         conn = self.get_sqlconn()
         c = conn.cursor()
