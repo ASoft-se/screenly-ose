@@ -1,40 +1,4 @@
-import sqlite3, os, shutil, subprocess
-
-# Define settings
-configdir = os.path.join(os.getenv('HOME'), '.screenly/')
-database = os.path.join(configdir, 'screenly.db')
-
-
-### Migration for table 'filename'
-try: 
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-    c.execute("SELECT md5 FROM assets")
-    table_needs_update = c.fetchone()
-    c.close()
-except:
-    table_needs_update = False
-
-# if the column 'filename' exist, drop it
-if table_needs_update:
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
-    c = conn.cursor()
-
-    # This can fail if there is duplicate of asset_id TODO: tell user to remove them if they exist before migrating
-    migration= """
-        BEGIN TRANSACTION;
-        CREATE TEMPORARY TABLE assets_backup(asset_id, name, uri, start_date, end_date, duration, mimetype);
-        INSERT INTO assets_backup SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets;
-        DROP TABLE assets;
-        CREATE TABLE assets(asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT);
-        INSERT INTO assets SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets_backup;
-        DROP TABLE assets_backup;
-        COMMIT;
-        """
-
-    c.executescript(migration)
-    c.close()
-    print "Dropped updated database (drop filename and md5)"
+import os, shutil, subprocess
 
 # Ensure config file is in place
 conf_file = os.path.join(os.getenv('HOME'), '.screenly', 'screenly.conf')

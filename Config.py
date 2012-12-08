@@ -34,7 +34,7 @@ class Config:
         self.configdir = path.join(getenv('HOME'), config.get('main', 'configdir'))
         self.database = path.join(getenv('HOME'), config.get('main', 'database'))
         # Make sure the database exist and that it is initiated.
-        self.__init_db()
+        self.__init_db(debug_out)
         self.nodetype = config.get('main', 'nodetype')
         self.listen = config.get('main', 'listen')
         self.port = config.getint('main', 'port')
@@ -69,7 +69,7 @@ class Config:
         return 'http://%s:%i' % (server, self.port)
 
 
-    def __init_db(self):
+    def __init_db(self, debug_out):
         # Create config dir if it doesn't exist
         if not path.isdir(self.configdir):
             makedirs(self.configdir)
@@ -82,8 +82,40 @@ class Config:
         c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assets'")
         asset_table = c.fetchone()
 
+	create_table="CREATE TABLE assets (asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)"
         if not asset_table:
-            c.execute("CREATE TABLE assets (asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
+	    logg('Creating database.', debug_out)
+            c.execute(create_table)
+        else:
+            # Check for need of migration
+            try:
+                c.execute("SELECT md5 FROM assets")
+                table_needs_update = c.fetchone()
+            except:
+                table_needs_update = False
+
+            # if the column 'md5' exist, drop it. even older column 'filename' is also droped
+            if table_needs_update:
+	        logg('Update database (drop filename and md5) ...', debug_out)
+                # This can fail if there is duplicate of asset_id TODO: tell user to remove them if they exist before migrating
+                fields = "asset_id, name, uri, start_date, end_date, duration, mimetype"
+                migration= """
+                    BEGIN TRANSACTION;
+                    CREATE TEMPORARY TABLE assets_backup(""" + fields + """);
+                    INSERT INTO assets_backup SELECT """ + fields + """ FROM assets;
+                    DROP TABLE assets;
+                    """ + create_table + """
+                    INSERT INTO assets SELECT """ + fields + """ FROM assets_backup;
+                    DROP TABLE assets_backup;
+                    COMMIT;
+                    """
+                try:
+                    c.executescript(migration)
+                    conn.commit()
+	            logg('Database update Done', debug_out)
+	        except Exception as e:
+	            logg('Database update failed with Exception: %s' % e, debug_out)
+
         conn.close()
 
     def get_sqlconn(self):
