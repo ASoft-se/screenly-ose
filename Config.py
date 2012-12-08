@@ -70,7 +70,7 @@ class Config:
 
 
     def get_sqlconn(self):
-       return sqlite3.connect(self.database, detect_types=sqlite3.PARSE_DECLTYPES)
+        return sqlite3.connect(self.database, detect_types=sqlite3.PARSE_DECLTYPES)
 
     def sqlfetch(self, sql, parameters={}, do_fetchone=False):
         conn = self.get_sqlconn()
