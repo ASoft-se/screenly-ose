@@ -145,10 +145,21 @@ class Config:
             assets.append(asset(row))
         return assets
 
+    def getasset(self, asset_id):
+        assets = self.getassets("WHERE asset_id=?", (asset_id,))
+        return assets[0]
+
+    def delete_asset(self, asset_id):
+        _asset = asset()
+        _asset.asset_id = asset_id
+        _asset.DELETE(self)
+
 class asset:
     """asset reuse"""
 
-    def __init__(self, qrow):
+    def __init__(self, qrow=None):
+        if qrow == None:
+	    return
         # handle query SELECT as in getassets
         self.asset_id = qrow[0]
         self.name = qrow[1].encode('ascii', 'ignore')
@@ -157,6 +168,17 @@ class asset:
         self.end_date = qrow[4]
         self.duration = qrow[5]
         self.mimetype = qrow[6]
+
+    def INSERT(self, config):
+        config.sqlcommit("INSERT INTO assets (asset_id, name, uri, start_date, end_date, duration, mimetype) VALUES (?,?,?,?,?,?,?)",
+                         (self.asset_id, self.name, self.uri, self.start_date, self.end_date, self.duration, self.mimetype))
+
+    def UPDATE(self, config):
+        config.sqlcommit("UPDATE assets SET name=?, uri=?, start_date=?, end_date=?, duration=?, mimetype=? WHERE asset_id=?",
+                         (self.name, self.uri, self.start_date, self.end_date, self.duration, self.mimetype, self.asset_id))
+
+    def DELETE(self, config):
+        config.sqlcommit("DELETE FROM assets WHERE asset_id=?", (self.asset_id,))
 
     def playlistitem(self, default_date_string=None):
         return {
