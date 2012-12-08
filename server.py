@@ -12,7 +12,6 @@ from sys import platform, stdout
 from requests import head as req_head
 from os import path, getloadavg, statvfs
 from hashlib import md5
-from json import dumps, loads
 from datetime import datetime, timedelta
 from bottle import route, run, debug, template, request, validate, error, static_file, get
 from urlparse import urlparse
@@ -31,7 +30,7 @@ def get_playlist():
         if (asset.start_date and asset.end_date) and (asset.start_date < config.time_lookup() and asset.end_date > config.time_lookup()):
             playlist.append(asset.playlistitem())
     
-    return dumps(playlist)
+    return playlist
 
 def get_assets():
     
@@ -41,7 +40,7 @@ def get_assets():
     for asset in assets:
         playlist.append(asset.playlistitem(""))
     
-    return dumps(playlist)
+    return playlist
 
 @route('/process_asset', method='POST')
 def process_asset():
@@ -226,14 +225,14 @@ def splash_page():
 @route('/view_playlist')
 def view_node_playlist():
 
-    nodeplaylist = loads(get_playlist())
+    nodeplaylist = get_playlist()
     
     return template('view_playlist', nodeplaylist=nodeplaylist)
 
 @route('/view_assets')
 def view_assets():
 
-    nodeplaylist = loads(get_assets())
+    nodeplaylist = get_assets()
     
     return template('view_assets', nodeplaylist=nodeplaylist)
 
@@ -246,7 +245,7 @@ def add_asset():
 @route('/schedule_asset')
 def schedule_asset():
 
-    assets = loads(get_assets())
+    assets = get_assets()
 
     return template('schedule_asset', assets=assets)
         
