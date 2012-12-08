@@ -159,7 +159,7 @@ class asset:
 
     def __init__(self, qrow=None):
         if qrow == None:
-	    return
+            return
         # handle query SELECT as in getassets
         self.asset_id = qrow[0]
         self.name = qrow[1].encode('ascii', 'ignore')
