@@ -10,7 +10,7 @@ __email__ = "vpetersson@wireload.net"
 from Config import Config
 from sys import platform, stdout
 from requests import get as req_get, head as req_head
-from os import path, makedirs, getloadavg, statvfs
+from os import path, getloadavg, statvfs
 from hashlib import md5
 from json import dumps, loads 
 from datetime import datetime, timedelta
@@ -102,23 +102,6 @@ def get_assets():
     
     return dumps(playlist)
 
-def initiate_db():
-    # Create config dir if it doesn't exist
-    if not path.isdir(config.configdir):
-       makedirs(config.configdir)
-
-    conn = config.get_sqlconn()
-    c = conn.cursor()
-
-    # Check if the asset-table exist. If it doesn't, create it.
-    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assets'")
-    asset_table = c.fetchone()
-    
-    if not asset_table:
-        c.execute("CREATE TABLE assets (asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
-        return "Initiated database."
-    conn.close()
-    
 @route('/process_asset', method='POST')
 def process_asset():
 
@@ -278,7 +261,7 @@ def delete_asset(asset_id):
 
 @route('/')
 def viewIndex():
-    initiate_db()
+    config.initiate_db()
     return template('index')
 
 
@@ -309,7 +292,7 @@ def system_info():
 def splash_page():
 
     # Make sure the database exist and that it is initiated.
-    initiate_db()
+    config.initiate_db()
 
     url = config.get_conf_url();
     ip_lookup = url is not None

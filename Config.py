@@ -7,7 +7,7 @@ __version__ = "0.1"
 __email__ = "vpetersson@wireload.net"
 
 import ConfigParser
-from os import path, getenv
+from os import path, makedirs, getenv
 from datetime import datetime
 from netifaces import ifaddresses
 import sqlite3
@@ -68,6 +68,22 @@ class Config:
             server = self.listen
         return 'http://%s:%i' % (server, self.port)
 
+
+    def initiate_db(self):
+        # Create config dir if it doesn't exist
+        if not path.isdir(self.configdir):
+            makedirs(self.configdir)
+
+        conn = self.get_sqlconn()
+        c = conn.cursor()
+
+        # Check if the asset-table exist. If it doesn't, create it.
+        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assets'")
+        asset_table = c.fetchone()
+
+        if not asset_table:
+            c.execute("CREATE TABLE assets (asset_id TEXT PRIMARY KEY, name TEXT, uri TEXT, start_date TIMESTAMP, end_date TIMESTAMP, duration TEXT, mimetype TEXT)")
+        conn.close()
 
     def get_sqlconn(self):
         return sqlite3.connect(self.database, detect_types=sqlite3.PARSE_DECLTYPES)
