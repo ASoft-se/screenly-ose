@@ -7,16 +7,14 @@ __license__ = "Dual License: GPLv2 and Commercial License"
 __version__ = "0.1.2"
 __email__ = "vpetersson@wireload.net"
 
-from Config import Config
+from Config import Config, asset as Asset
 from sys import platform, stdout
-from requests import get as req_get, head as req_head
+from requests import head as req_head
 from os import path, getloadavg, statvfs
 from hashlib import md5
-from json import dumps, loads 
+from json import dumps, loads
 from datetime import datetime, timedelta
 from bottle import route, run, debug, template, request, validate, error, static_file, get
-from StringIO import StringIO
-from PIL import Image
 from urlparse import urlparse
 from hurry.filesize import size
 from subprocess import check_output
@@ -53,44 +51,32 @@ def process_asset():
         request.POST.get('mimetype','').strip()
         ):
 
-        name =  request.POST.get('name','').decode('UTF-8')
-        uri = request.POST.get('uri','').strip()
-        mimetype = request.POST.get('mimetype','').strip()
+        asset = Asset()
+        asset.name =  request.POST.get('name','').decode('UTF-8')
+        asset.uri = request.POST.get('uri','').strip()
+        asset.mimetype = request.POST.get('mimetype','').strip()
 
         # Make sure it's a valid resource
-        uri_check = urlparse(uri)
+        uri_check = urlparse(asset.uri)
         if not (uri_check.scheme == "http" or uri_check.scheme == "https"):
             header = "Ops!"
             message = "URL must be HTTP or HTTPS."
             return template('message', header=header, message=message)
 
-        if "image" in mimetype:
-            file = req_get(uri)
-        else:
-            file = req_head(uri)
+        file = req_head(asset.uri)
 
-        # Only proceed if fetch was successful. 
+        # Only proceed if fetch was successful.
         if file.status_code == 200:
-            asset_id = md5(name+uri).hexdigest()
-            
-            strict_uri = uri_check.scheme + "://" + uri_check.netloc + uri_check.path
+            asset.asset_id = md5(asset.name + asset.uri).hexdigest()
 
-            if "image" in mimetype:
-                resolution = Image.open(StringIO(file.content)).size
-            else:
-                resolution = "N/A"
+            asset.start_date = ""
+            asset.end_date = ""
+            asset.duration = ""
 
-            if "video" in mimetype:
-                duration = "N/A"
+            asset.INSERT(config)
 
-            start_date = ""
-            end_date = ""
-            duration = ""
-            
-            config.sqlcommit("INSERT INTO assets (asset_id, name, uri, start_date, end_date, duration, mimetype) VALUES (?,?,?,?,?,?,?)", (asset_id, name, uri, start_date, end_date, duration, mimetype))
-            
             header = "Yay!"
-            message =  "Added asset (" + asset_id + ") to the database."
+            message =  "Added asset (" + asset.asset_id + ") to the database."
             return template('message', header=header, message=message)
             
         else:
@@ -114,28 +100,23 @@ def process_schedule():
         input_start = request.POST.get('start','').strip()
         input_end = request.POST.get('end','').strip() 
 
-        start_date = datetime.strptime(input_start, '%Y-%m-%d @ %H:%M')
-        end_date = datetime.strptime(input_end, '%Y-%m-%d @ %H:%M')
+        asset = config.getasset(asset_id)
 
-        conn = config.get_sqlconn()
-        c = conn.cursor()
-        c.execute("SELECT mimetype FROM assets WHERE asset_id=?", (asset_id,))
-        asset_mimetype = c.fetchone()
-        
-        if "image" or "web" in asset_mimetype:
+        asset.start_date = datetime.strptime(input_start, '%Y-%m-%d @ %H:%M')
+        asset.end_date = datetime.strptime(input_end, '%Y-%m-%d @ %H:%M')
+
+        if "image" or "web" in asset.mimetype:
             try:
-                duration = request.POST.get('duration','').strip()
+                asset.duration = request.POST.get('duration','').strip()
             except:
                 header = "Ops!"
                 message = "Duration missing. This is required for images and web-pages."
                 return template('message', header=header, message=message)
         else:
-            duration = "N/A"
+            asset.duration = "N/A"
 
-        c.execute("UPDATE assets SET start_date=?, end_date=?, duration=? WHERE asset_id=?", (start_date, end_date, duration, asset_id))
-        conn.commit()
-        conn.close()
-        
+        asset.UPDATE(config)
+
         header = "Yes!"
         message = "Successfully scheduled asset."
         return template('message', header=header, message=message)
@@ -154,29 +135,30 @@ def update_asset():
         request.POST.get('mimetype','').strip()
         ):
 
-        asset_id =  request.POST.get('asset_id','').strip()
-        name = request.POST.get('name','').decode('UTF-8')
-        uri = request.POST.get('uri','').strip()
-        mimetype = request.POST.get('mimetype','').strip()
+        asset = Asset()
+        asset.asset_id =  request.POST.get('asset_id','').strip()
+        asset.name = request.POST.get('name','').decode('UTF-8')
+        asset.uri = request.POST.get('uri','').strip()
+        asset.mimetype = request.POST.get('mimetype','').strip()
 
         try:
-            duration = request.POST.get('duration','').strip()
+            asset.duration = request.POST.get('duration','').strip()
         except:
-            duration = None
+            asset.duration = None
 
         try:
             input_start = request.POST.get('start','')
-            start_date = datetime.strptime(input_start, '%Y-%m-%d @ %H:%M')
+            asset.start_date = datetime.strptime(input_start, '%Y-%m-%d @ %H:%M')
         except:
-            start_date = None
+            asset.start_date = None
 
         try:
             input_end = request.POST.get('end','').strip()
-            end_date = datetime.strptime(input_end, '%Y-%m-%d @ %H:%M')
+            asset.end_date = datetime.strptime(input_end, '%Y-%m-%d @ %H:%M')
         except:
-            end_date = None
+            asset.end_date = None
 
-        config.sqlcommit("UPDATE assets SET start_date=?, end_date=?, duration=?, name=?, uri=?, duration=?, mimetype=? WHERE asset_id=?", (start_date, end_date, duration, name, uri, duration, mimetype, asset_id))
+        asset.UPDATE(config)
 
         header = "Yes!"
         message = "Successfully updated asset."
@@ -192,14 +174,14 @@ def update_asset():
 def delete_asset(asset_id):
 
     try:
-        config.sqlcommit("DELETE FROM assets WHERE asset_id=?", (asset_id,))
-        
+        config.delete_asset(asset_id)
+
         header = "Success!"
         message = "Deleted asset."
         return template('message', header=header, message=message)
-    except:
+    except Exception as e:
         header = "Ops!"
-        message = "Failed to delete asset."
+        message = "Failed to delete asset. %s" % e
         return template('message', header=header, message=message)
 
 @route('/')
@@ -264,24 +246,14 @@ def add_asset():
 @route('/schedule_asset')
 def schedule_asset():
 
-    query = config.sqlfetch("SELECT asset_id, name FROM assets ORDER BY name")
-    assets = []
-    for asset in query:
-        asset_id = asset[0]
-        name = asset[1]
-        
-        assets.append({
-            'name' : name,
-            'asset_id' : asset_id,
-        })
+    assets = loads(get_assets())
 
     return template('schedule_asset', assets=assets)
         
 @route('/edit_asset/:asset_id')
 def edit_asset(asset_id):
 
-    assets = config.getassets("WHERE asset_id=?", (asset_id,))
-    asset_info = assets[0].playlistitem()
+    asset_info = config.getasset(asset_id).playlistitem()
 
     return template('edit_asset', asset_info=asset_info)
         
