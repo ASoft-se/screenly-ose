@@ -6,10 +6,10 @@ __license__ = "Dual License: GPLv2 and Commercial License"
 __version__ = "0.1"
 __email__ = "vpetersson@wireload.net"
 
-import ConfigParser
-from os import path, getenv
 from datetime import datetime
 from netifaces import ifaddresses
+from os import path, getenv
+import ConfigParser
 
 def logg(string, out=None):
     if out is None:
@@ -63,3 +63,4 @@ class Config:
         else:
             server = self.listen
         return 'http://%s:%i' % (server, self.port)
+

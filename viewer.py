@@ -7,20 +7,22 @@ __license__ = "Dual License: GPLv2 and Commercial License"
 __version__ = "0.1"
 __email__ = "vpetersson@wireload.net"
 
-import sqlite3
-from settings import Config
-from requests import get 
-from platform import machine 
+from glob import glob
 from os import path, getenv, remove, makedirs
 from os import stat as os_stat, utime
-from subprocess import Popen, call 
-import html_templates
+from platform import machine
+from random import shuffle
+from requests import get
+from settings import Config
+from stat import S_ISFIFO
+from subprocess import Popen, call
 from time import sleep, time
 import logging
-from glob import glob
-from stat import S_ISFIFO
+import sqlite3
 
-# Initiate logging
+import html_templates
+
+# Initiate logging for viewer
 logging.basicConfig(level=logging.INFO,
                     filename='/tmp/screenly_viewer.log',
                     format='%(asctime)s %(message)s',
@@ -33,7 +35,7 @@ requests_log.setLevel(logging.WARNING)
 
 logging.debug('Starting viewer.py')
 
-# Get config
+# Get Config settings
 settings = Config(logging.debug)
 
 class Scheduler(object):
@@ -49,7 +51,7 @@ class Scheduler(object):
             return None
         idx = self.index
         self.index = (self.index + 1) % self.nassets
-        logging.debug('get_next_asset counter %d returning asset %d of %d' % (self.counter, idx+1, self.nassets))
+        logging.debug('get_next_asset counter %d returning asset %d of %d' % (self.counter, idx + 1, self.nassets))
         if settings.shuffle_playlist and self.index == 0:
             self.counter += 1
         return self.assets[idx]
@@ -62,7 +64,7 @@ class Scheduler(object):
             self.update_playlist()
         elif settings.shuffle_playlist and self.counter >= 5:
             self.update_playlist()
-        elif self.deadline != None and self.deadline <= time_cur:
+        elif self.deadline and self.deadline <= time_cur:
             self.update_playlist()
 
     def update_playlist(self):
@@ -82,6 +84,7 @@ class Scheduler(object):
             db_mtime = 0
         return db_mtime >= self.gentime
 
+
 def generate_asset_list():
     logging.info('Generating asset-list...')
     conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
@@ -93,7 +96,7 @@ def generate_asset_list():
     time_cur = settings.get_current_time()
     deadline = None
     for asset in query:
-        asset_id = asset[0]  
+        asset_id = asset[0]
         name = asset[1].encode('ascii', 'ignore')
         uri = asset[2]
         md5 = asset[3]
@@ -103,22 +106,22 @@ def generate_asset_list():
         mimetype = asset[7]
 
         logging.debug('generate_asset_list: %s: start (%s) end (%s)' % (name, start_date, end_date))
-        if (start_date and end_date) and (start_date < time_cur and end_date > time_cur):
-            playlist.append({"name" : name, "uri" : uri, "duration" : duration, "mimetype" : mimetype})
-        if (start_date and end_date) and (start_date < time_cur and end_date > time_cur):
-            if deadline == None or end_date < deadline:
-               deadline = end_date
-        if (start_date and end_date) and (start_date > time_cur and end_date > start_date):
-            if deadline == None or start_date < deadline:
-               deadline = start_date
+        if start_date and end_date:
+            if start_date < time_cur and end_date > time_cur:
+                playlist.append({"name": name, "uri": uri, "duration": duration, "mimetype": mimetype})
+                if not deadline or end_date < deadline:
+                    deadline = end_date
+            elif start_date >= time_cur and end_date > start_date:
+                if not deadline or start_date < deadline:
+                    deadline = start_date
 
     logging.debug('generate_asset_list deadline: %s' % deadline)
 
     if settings.shuffle_playlist:
-        from random import shuffle
         shuffle(playlist)
-    
+
     return (playlist, deadline)
+
 
 def watchdog():
     """
@@ -129,7 +132,8 @@ def watchdog():
     if not path.isfile(watchdog):
         open(watchdog, 'w').close()
     else:
-        utime(watchdog,None)
+        utime(watchdog, None)
+
 
 def load_browser():
     logging.info('Loading browser...')
@@ -142,7 +146,7 @@ def load_browser():
 
     browser_args = [browser_bin, "--geometry=" + settings.resolution, "--uri=" + browser_load_url]
     browser = Popen(browser_args)
-    
+
     logging.info('Browser loaded. Running as PID %d.' % browser.pid)
 
     if settings.show_splash:
@@ -154,34 +158,41 @@ def load_browser():
 
     return browser
 
+
 def get_fifo():
     candidates = glob('/tmp/uzbl_fifo_*')
     for file in candidates:
         if S_ISFIFO(os_stat(file).st_mode):
             return file
         else:
-            return None    
-    
+            return None
+
+
+def browser_set(set_data):
+    f = open(fifo, 'a')
+    f.write('set %s\n' % set_data)
+    f.close()
+
+
+def browser_url(url):
+    browser_set('uri = %s' % url)
+
+
 def disable_browser_status():
     logging.debug('Disabled status-bar in browser')
-    f = open(fifo, 'a')
-    f.write('set show_status = 0\n')
-    f.close()
+    browser_set('show_status = 0')
 
 
 def view_image(image, name, duration):
     logging.debug('Displaying image %s for %s seconds.' % (image, duration))
     url = html_templates.image_page(image, name)
-    f = open(fifo, 'a')
-    f.write('set uri = %s\n' % url)
-    f.close()
-    
+    browser_url(url)
+
     sleep(int(duration))
-    
-    f = open(fifo, 'a')
-    f.write('set uri = %s\n' % black_page)
-    f.close()
-    
+
+    browser_url(black_page)
+
+
 def view_video(video):
     arch = machine()
 
@@ -205,12 +216,12 @@ def view_video(video):
     elif arch == "x86_64" or arch == "x86_32":
         logging.debug('Displaying video %s. Detected x86. Using mplayer.' % video)
         mplayer = "mplayer"
-        run = call([mplayer, "-fs", "-nosound", str(video) ], stdout=False)
+        run = call([mplayer, "-fs", "-nosound", str(video)], stdout=False)
         if run != 0:
             logging.debug("Unclean exit: " + str(run))
 
-def view_web(url, duration):
 
+def view_web(url, duration):
     # If local web page, check if the file exist. If remote, check if it is
     # available.
     if (html_folder in url and path.exists(url)):
@@ -219,68 +230,64 @@ def view_web(url, duration):
         web_resource = get(url).status_code
 
     if web_resource == 200:
-        logging.debug('Web content appears to be available. Proceeding.')  
+        logging.debug('Web content appears to be available. Proceeding.')
         logging.debug('Displaying url %s for %s seconds.' % (url, duration))
-        f = open(fifo, 'a')
-        f.write('set uri = %s\n' % url)
-        f.close()
-    
+        browser_url(url)
+
         sleep(int(duration))
-    
-        f = open(fifo, 'a')
-        f.write('set uri = %s\n' % black_page)
-        f.close()
-    else: 
+
+        browser_url(url)
+    else:
         logging.debug('Received non-200 status (or file not found if local) from %s. Skipping.' % (url))
         pass
 
-# Create folder to hold HTML-pages
-html_folder = '/tmp/screenly_html/'
-if not path.isdir(html_folder):
-   makedirs(html_folder)
+if __name__ == "__main__":
+    # Create folder to hold HTML-pages
+    html_folder = '/tmp/screenly_html/'
+    if not path.isdir(html_folder):
+        makedirs(html_folder)
 
-# Set up HTML templates
-black_page = html_templates.black_page()
+    # Set up HTML templates
+    black_page = html_templates.black_page()
 
-# Fire up the browser
-run_browser = load_browser()
+    # Fire up the browser
+    run_browser = load_browser()
 
-logging.debug('Getting browser PID.')
-browser_pid = run_browser.pid
+    logging.debug('Getting browser PID.')
+    browser_pid = run_browser.pid
 
-logging.debug('Getting FIFO.')
-fifo = get_fifo()
+    logging.debug('Getting FIFO.')
+    fifo = get_fifo()
 
-# Bring up the blank page (in case there are only videos).
-logging.debug('Loading blank page.')
-view_web(black_page, 1)
+    # Bring up the blank page (in case there are only videos).
+    logging.debug('Loading blank page.')
+    view_web(black_page, 1)
 
-logging.debug('Disable the browser status bar')
-disable_browser_status()
+    logging.debug('Disable the browser status bar')
+    disable_browser_status()
 
-scheduler = Scheduler()
+    scheduler = Scheduler()
 
-# Infinit loop. 
-logging.debug('Entering infinite loop.')
-while True:
+    # Infinite loop.
+    logging.debug('Entering infinite loop.')
+    while True:
+        asset = scheduler.get_next_asset()
+        logging.debug('got asset' + str(asset))
 
-    asset = scheduler.get_next_asset()
-    logging.debug('got asset'+str(asset))
-
-    if asset == None:
-        # The playlist is empty, go to sleep.
-        logging.info('Playlist is empty. Going to sleep.')
-        sleep(5)
-    else:
-        logging.info('show asset %s' % asset["name"])
-
-        watchdog()
-
-        if "image" in asset["mimetype"]:
-            view_image(asset["uri"], asset["name"], asset["duration"])
-        elif "video" in asset["mimetype"]:
-            view_video(asset["uri"])
-        elif "web" in asset["mimetype"]:
-            view_web(asset["uri"], asset["duration"])
+        if asset == None:
+            # The playlist is empty, go to sleep.
+            logging.info('Playlist is empty. Going to sleep.')
+            sleep(5)
         else:
-            print "Unknown MimeType, or MimeType missing"
+            logging.info('show asset %s' % asset["name"])
+
+            watchdog()
+
+            if "image" in asset["mimetype"]:
+                view_image(asset["uri"], asset["name"], asset["duration"])
+            elif "video" in asset["mimetype"]:
+                view_video(asset["uri"])
+            elif "web" in asset["mimetype"]:
+                view_web(asset["uri"], asset["duration"])
+            else:
+                print "Unknown MimeType, or MimeType missing"
