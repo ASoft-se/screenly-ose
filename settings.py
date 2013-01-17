@@ -32,6 +32,9 @@ class Config:
         # Get main config values
         self.database = path.join(getenv('HOME'), config.get('main', 'database'))
         self.nodetype = config.get('main', 'nodetype')
+        # This assumes nodetype never changes from "standalone" to "managed" during a run.
+        self.get_current_time = datetime.now if nodetype == "standalone" else datetime.utcnow
+
         self.listen = config.get('main', 'listen')
         self.port = config.getint('main', 'port')
 
@@ -43,12 +46,6 @@ class Config:
         self.audio_output = config.get('viewer', 'audio_output')
         self.shuffle_playlist = config.getboolean('viewer', 'shuffle_playlist')
         self.resolution = config.get('viewer', 'resolution')
-
-    def time_lookup(self):
-        if self.nodetype == "standalone":
-            return datetime.now()
-        elif self.nodetype == "managed":
-            return datetime.utcnow()
 
     def get_conf_url(self):
         try:

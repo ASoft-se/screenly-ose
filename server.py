@@ -8,7 +8,7 @@ __version__ = "0.1.2"
 __email__ = "vpetersson@wireload.net"
 
 import sqlite3
-from Config import Config
+from settings import Config
 from sys import platform, stdout
 from requests import get as req_get, head as req_head
 from os import path, makedirs, getloadavg, statvfs
@@ -23,14 +23,12 @@ from urlparse import urlparse
 from hurry.filesize import size
 from subprocess import check_output
 
-# Get config
-config = Config()
-# easy access to database for now, maybe move sqlite3 to the Config as well?
-database = config.database
+# Get settings from config
+settings = Config()
 
 def get_playlist():
     
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
     c.execute("SELECT * FROM assets ORDER BY name")
     assets = c.fetchall()
@@ -66,14 +64,14 @@ def get_playlist():
                 "start_date" : start_date,
                 "end_date" : end_date
                 }
-        if (start_date and end_date) and (input_start_date < config.time_lookup() and input_end_date > config.time_lookup()):
+        if (start_date and end_date) and (input_start_date < settings.get_current_time() and input_end_date > settings.get_current_time()):
             playlist.append(playlistitem)
     
     return dumps(playlist)
 
 def get_assets():
     
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
     c.execute("SELECT asset_id, name, uri, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
     assets = c.fetchall()
@@ -113,10 +111,10 @@ def get_assets():
 
 def initiate_db():
     # Create config dir if it doesn't exist
-    if not path.isdir(config.configdir):
-       makedirs(config.configdir)
+    if not path.isdir(settings.configdir):
+       makedirs(settings.configdir)
 
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     # Check if the asset-table exist. If it doesn't, create it.
@@ -129,7 +127,7 @@ def initiate_db():
     
 @route('/process_asset', method='POST')
 def process_asset():
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     if (request.POST.get('name','').strip() and 
@@ -189,7 +187,7 @@ def process_asset():
 
 @route('/process_schedule', method='POST')
 def process_schedule():
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     if (request.POST.get('asset','').strip() and 
@@ -231,7 +229,7 @@ def process_schedule():
 
 @route('/update_asset', method='POST')
 def update_asset():
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     if (request.POST.get('asset_id','').strip() and 
@@ -277,7 +275,7 @@ def update_asset():
 
 @route('/delete_asset/:asset_id')
 def delete_asset(asset_id):
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
     
     c.execute("DELETE FROM assets WHERE asset_id=?", (asset_id,))
@@ -327,7 +325,7 @@ def splash_page():
     # Make sure the database exist and that it is initiated.
     initiate_db()
 
-    url = config.get_conf_url();
+    url = settings.get_conf_url();
     ip_lookup = url is not None
     if not ip_lookup:
         url = "Unable to lookup IP from eth0."
@@ -358,7 +356,7 @@ def add_asset():
 @route('/schedule_asset')
 def schedule_asset():
     
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     assets = []
@@ -378,7 +376,7 @@ def schedule_asset():
 @route('/edit_asset/:asset_id')
 def edit_asset(asset_id):
 
-    conn = sqlite3.connect(database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
 
     c.execute("SELECT name, uri, md5, start_date, end_date, duration, mimetype FROM assets WHERE asset_id=?", (asset_id,))
@@ -427,4 +425,4 @@ def mistake404(code):
     return 'Sorry, this page does not exist!'
 
 #Starting the server listen on configured address and port
-run(host=config.listen, port=config.port, reloader=True)
+run(host=settings.listen, port=settings.port, reloader=True)

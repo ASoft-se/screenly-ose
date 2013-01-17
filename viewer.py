@@ -8,7 +8,7 @@ __version__ = "0.1"
 __email__ = "vpetersson@wireload.net"
 
 import sqlite3
-from Config import Config
+from settings import Config
 from requests import get 
 from platform import machine 
 from os import path, getenv, remove, makedirs
@@ -34,7 +34,7 @@ requests_log.setLevel(logging.WARNING)
 logging.debug('Starting viewer.py')
 
 # Get config
-config = Config(logging.debug)
+settings = Config(logging.debug)
 
 class Scheduler(object):
     def __init__(self, *args, **kwargs):
@@ -50,17 +50,17 @@ class Scheduler(object):
         idx = self.index
         self.index = (self.index + 1) % self.nassets
         logging.debug('get_next_asset counter %d returning asset %d of %d' % (self.counter, idx+1, self.nassets))
-        if config.shuffle_playlist and self.index == 0:
+        if settings.shuffle_playlist and self.index == 0:
             self.counter += 1
         return self.assets[idx]
 
     def refresh_playlist(self):
         logging.debug('refresh_playlist')
-        time_cur = config.time_lookup()
+        time_cur = settings.get_current_time()
         logging.debug('refresh: counter: (%d) deadline (%s) timecur (%s)' % (self.counter, self.deadline, time_cur))
         if self.dbisnewer():
             self.update_playlist()
-        elif config.shuffle_playlist and self.counter >= 5:
+        elif settings.shuffle_playlist and self.counter >= 5:
             self.update_playlist()
         elif self.deadline != None and self.deadline <= time_cur:
             self.update_playlist()
@@ -77,20 +77,20 @@ class Scheduler(object):
     def dbisnewer(self):
         # get database file last modification time
         try:
-            db_mtime = path.getmtime(config.database)
+            db_mtime = path.getmtime(settings.database)
         except:
             db_mtime = 0
         return db_mtime >= self.gentime
 
 def generate_asset_list():
     logging.info('Generating asset-list...')
-    conn = sqlite3.connect(config.database, detect_types=sqlite3.PARSE_DECLTYPES)
+    conn = sqlite3.connect(settings.database, detect_types=sqlite3.PARSE_DECLTYPES)
     c = conn.cursor()
     c.execute("SELECT asset_id, name, uri, md5, start_date, end_date, duration, mimetype FROM assets ORDER BY name")
     query = c.fetchall()
 
     playlist = []
-    time_cur = config.time_lookup()
+    time_cur = settings.get_current_time()
     deadline = None
     for asset in query:
         asset_id = asset[0]  
@@ -114,7 +114,7 @@ def generate_asset_list():
 
     logging.debug('generate_asset_list deadline: %s' % deadline)
 
-    if config.shuffle_playlist:
+    if settings.shuffle_playlist:
         from random import shuffle
         shuffle(playlist)
     
@@ -135,17 +135,17 @@ def load_browser():
     logging.info('Loading browser...')
     browser_bin = "uzbl-browser"
 
-    if config.show_splash:
-        browser_load_url = config.get_viewer_baseurl() + '/splash_page'
+    if settings.show_splash:
+        browser_load_url = settings.get_viewer_baseurl() + '/splash_page'
     else:
         browser_load_url = black_page
 
-    browser_args = [browser_bin, "--geometry=" + config.resolution, "--uri=" + browser_load_url]
+    browser_args = [browser_bin, "--geometry=" + settings.resolution, "--uri=" + browser_load_url]
     browser = Popen(browser_args)
     
     logging.info('Browser loaded. Running as PID %d.' % browser.pid)
 
-    if config.show_splash:
+    if settings.show_splash:
         # Show splash screen for 60 seconds.
         sleep(60)
     else:
@@ -189,7 +189,7 @@ def view_video(video):
     if arch == "armv6l":
         logging.debug('Displaying video %s. Detected Raspberry Pi. Using omxplayer.' % video)
         omxplayer = "omxplayer"
-        omxplayer_args = [omxplayer, "-o", config.audio_output, "-w", str(video)]
+        omxplayer_args = [omxplayer, "-o", settings.audio_output, "-w", str(video)]
         run = call(omxplayer_args, stdout=True)
         logging.debug(run)
 
